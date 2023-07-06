@@ -1,0 +1,17 @@
+Package: SplittingJRNMM
+Type: Package
+Title: Splitting JRNMM
+Version: 1.0
+Date: 2023-05-23
+Author: Irene Tubikanec
+Maintainer: Irene Tubikanec <irene.tubikanec@aau.at>
+Description: Numerical splitting method for the simulation of sample paths of the multi-population stochastic Jansen and Rit Neural Mass Model (JRNMM)
+License: GPL (>= 2)
+Encoding: UTF-8
+LazyData: true
+Depends:
+    Rcpp,RcppEigen,BH,doParallel,doRNG,foreach,ggplot2,ggthemes,dplyr,reshape2,transport,clue
+Imports: Rcpp (>= 1.0.9),RcppEigen,BH
+LinkingTo: Rcpp,RcppEigen,BH
+RoxygenNote: 7.2.1
+
