@@ -1,11 +1,11 @@
 
 #-----------------------------------------------------------------------------------
 # Author: Irene Tubikanec
-# Date:  2023-05-23
+# Date:  2025-03-28
 #-----------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------
-# Functions required for SMC-ABC inference in the stochastic multi-population JRNMM
+# Functions required for nSMC-ABC inference in the stochastic multi-population JRNMM
 #-----------------------------------------------------------------------------------
 
 #-------------------------------------------------------------------------
@@ -105,11 +105,10 @@ ABC_summaries_parameters<-function(X,T,h){
   Lsupport<-1001
   stepD<-(endSupp-startSupp)/(Lsupport-1)
   
-  #parameters for spectral densities and MSCs
+  #parameters for spectral densities 
   span_val<-5*T
   lag_val<-100
-  X12<-ts.union(ts(X[1,],frequency = 1/h),ts(X[2,],frequency = 1/h))
-  specDens<-crossSpectrum(X12,spans = span_val)
+  specDens<-spectrum(X[1,],log="no",span=span_val,plot=FALSE)
   spx<-specDens$freq 
   stepP<-diff(spx)[1]
   Lspec<-length(spx)
@@ -131,15 +130,20 @@ ABC_summaries_parameters<-function(X,T,h){
 #T       time horizon for path simulation
 #h       step size for path simulation
 
-#Output: summaries (densities, spectral densities, MSCs, ccfs) of a dataset X
+#Output: summaries (densities, spectral densities, ccfs) of a dataset X
 #-------------------------------------------------------------------------
 
-ABC_summaries<-function(X,T,h,summaries_parameters)
+ABC_summaries<-function(in_X,in_T,in_hsim,in_summaries_parameters)
 {
-
-  N<-length(X[,1]) #number of populations in the JRNMM
+  #Input general
+  X<-in_X #data
+  T<-in_T #time horizon
+  hsim<-in_hsim #step size
   
-  #access specific summary parameters
+  N<-length(X[,1]) #number of populations
+  
+  #Input summary parameters
+  summaries_parameters<-in_summaries_parameters
   startSupp<-summaries_parameters[1]
   endSupp<-summaries_parameters[2]
   Lsupport<-summaries_parameters[3] 
@@ -148,50 +152,43 @@ ABC_summaries<-function(X,T,h,summaries_parameters)
   lag_val<-summaries_parameters[8]
   Lccf<-summaries_parameters[9]
   
-  #determine densties, spectral densities, coh's (MSCs) and ccf's of X 
+  #-----------------------------------------------------
+  # Densties, spectral densities and ccf's of X 
+  #-----------------------------------------------------
+  
   dens_mat<-matrix(0,nrow=N,ncol=Lsupport)
   spec_mat<-matrix(0,nrow=N,ncol=Lspec)
-  coh_mat<-matrix(0,nrow=(N*(N-1)/2),ncol=Lspec)
   ccf_mat<-matrix(0,nrow=(N*(N-1)),ncol=Lccf)
   
-  count_coh<-0
   count_ccf<-0
   for(j in 1:(N-1)){
     for(k in (j+1):N){
-        Xjk<-ts.union(ts(X[j,], frequency = 1/h),ts(X[k,], frequency = 1/h))
-        specXjk<-crossSpectrum(Xjk,spans = span_val)
-        
-        #coh
-        count_coh<-count_coh+1
-        coh_mat[count_coh,]<-specXjk$coh
-      
-        #ccf
-        Xj<-ts(X[j,], frequency = 1/h)
-        Xk<-ts(X[k,], frequency = 1/h)
-        count_ccf<-count_ccf+1
-        ccfXjk<-ccf(Xj,Xk,lag=lag_val,plot=FALSE)
-        ccf_mat[count_ccf,]<-ccfXjk$acf
-        count_ccf<-count_ccf+1
-        ccfXkj<-ccf(Xk,Xj,lag=lag_val,plot=FALSE)
-        ccf_mat[count_ccf,]<-ccfXkj$acf
+      #ccf
+      Xj<-ts(X[j,], frequency = 1/hsim)
+      Xk<-ts(X[k,], frequency = 1/hsim)
+      count_ccf<-count_ccf+1
+      ccfXjk<-ccf(Xj,Xk,lag=lag_val,plot=FALSE)
+      ccf_mat[count_ccf,]<-ccfXjk$acf
+      count_ccf<-count_ccf+1
+      ccfXkj<-ccf(Xk,Xj,lag=lag_val,plot=FALSE)
+      ccf_mat[count_ccf,]<-ccfXkj$acf
     }
     #spec
-    spec_mat[j,]<-specXjk$spec1
+    spec_mat[j,]<-spectrum(X[j,],log="no",span=span_val,plot=FALSE)$spec #specXjk$spec1
     #dens
     dens_mat[j,]<-density(X[j,],n=Lsupport,from=startSupp,to=endSupp)$y
   }
-  spec_mat[N,]<-specXjk$spec2
+  spec_mat[N,]<-spectrum(X[N,],log="no",span=span_val,plot=FALSE)$spec #specXjk$spec2
   dens_mat[N,]<-density(X[N,],n=Lsupport,from=startSupp,to=endSupp)$y
   
   ret<-list()
   ret[[1]]<-dens_mat
   ret[[2]]<-spec_mat
-  ret[[3]]<-coh_mat
-  ret[[4]]<-ccf_mat
+  ret[[3]]<-ccf_mat
   
-  #return summaries
   return(ret)
 }
+
 
 #-------------------------------------------------------------------------
 # Computation of weights (for distance measure among two sets of summaries) from observed data
@@ -213,20 +210,13 @@ ABC_summaries_weights<-function(summaries,summaries_parameters,N){
   #access different summaries
   dens_mat<-summaries[[1]] #dens
   spec_mat<-summaries[[2]] #spec
-  coh_mat<-summaries[[3]] #coh
-  ccf_mat<-summaries[[4]] #ccf
+  ccf_mat<-summaries[[3]] #ccf
   
   specA<-rep(0,N)
   for(j in 1:N){
     specA[j]<-sum(stepP*abs(spec_mat[j,]))
   }
   mean_specA<-mean(specA)
-  
-  cohA<-rep(0,N)
-  for(j in 1:(N*(N-1))/2){
-    cohA[j]<-sum(stepP*abs(coh_mat[j,]))
-  }
-  mean_cohA<-mean(cohA)
   
   ccfA<-rep(0,N)
   for(j in 1:(N*(N-1))){
@@ -238,16 +228,12 @@ ABC_summaries_weights<-function(summaries,summaries_parameters,N){
   we_dens<-mean_specA
   we_dens
   
-  #weight coh
-  we_coh<-mean_specA/mean_cohA
-  we_coh
-  
   #weight ccf
   we_ccf<-mean_specA/mean_ccfA
   we_ccf
   
   #determine vector of summaries and return it
-  summaries_weights<-c(we_dens,we_coh,we_ccf)
+  summaries_weights<-c(we_dens,we_ccf)
   return(summaries_weights)
 }
 
@@ -273,17 +259,13 @@ ABC_distance<-function(summaries_X,summaries_Y,summaries_parameters,summaries_we
   #spectral densities
   spec_matX<-summaries_X[[2]]
   spec_matY<-summaries_Y[[2]]
-  #coh's
-  coh_matX<-summaries_X[[3]]
-  coh_matY<-summaries_Y[[3]]
   #ccf's
-  ccf_matX<-summaries_X[[4]]
-  ccf_matY<-summaries_Y[[4]]
+  ccf_matX<-summaries_X[[3]]
+  ccf_matY<-summaries_Y[[3]]
   
   #access summary weights
   we_dens<-summaries_weights[1]
-  we_coh<-summaries_weights[2]
-  we_ccf<-summaries_weights[3]
+  we_ccf<-summaries_weights[2]
   
   #access specific summary parameters
   stepD<-summaries_parameters[4]
@@ -293,7 +275,6 @@ ABC_distance<-function(summaries_X,summaries_Y,summaries_parameters,summaries_we
   #Compute distance
   dist_dens<-0
   dist_spec<-0
-  dist_coh<-0
   dist_ccf<-0
   
   for(j in 1:(N*(N-1))){
@@ -301,13 +282,10 @@ ABC_distance<-function(summaries_X,summaries_Y,summaries_parameters,summaries_we
     dist_dens<-dist_dens+sum(abs(stepD*(dens_matX[j,]-dens_matY[j,])))
     dist_spec<-dist_spec+sum(abs(stepP*(spec_matX[j,]-spec_matY[j,])))
     }
-    if(j<=(N*(N-1)/2)){
-      dist_coh<-dist_coh+sum(abs(stepP*(coh_matX[j,]-coh_matY[j,])))
-    }
     dist_ccf<-dist_ccf+sum(abs(stepCcf*(ccf_matX[j,]-ccf_matY[j,])))
   }
   
-  ret<-dist_spec/N+(dist_coh/(N*(N-1)/2))*we_coh+(dist_ccf/(N*(N-1)))*we_ccf+(dist_dens/N)*we_dens
+  ret<-dist_spec/N+(dist_ccf/(N*(N-1)))*we_ccf+(dist_dens/N)*we_dens
   
   #return distance
   return(ret)
