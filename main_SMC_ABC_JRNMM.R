@@ -1,13 +1,14 @@
 
 #-----------------------------------------------------------------------------------
 # Author: Irene Tubikanec
-# Date:   2023-05-23
+# Date:   2025-03-28
 #
-# Description: Splitting-based SMC-ABC method for network inference and parameter estimation
+# Description: nSMC-ABC method for network inference and parameter estimation
 #              in the stochastic multi-population JRNMM, proposed in the paper:            
 #
-#              Network inference in a stochastic multi-population neural mass 
-#              model, by S. Ditlevsen, M. Tamborrino and I. Tubikanec
+#              Network inference via approximate Bayesian computation. 
+#              Illustration on a stochastic multi-population neural mass model, 
+#              by S. Ditlevsen, M. Tamborrino and I. Tubikanec
 #-------------------------------------------------------------------------------
 
 #--------------------------------------------
@@ -29,7 +30,7 @@ filename_results<-"ABC_Results"
 # PREPARE SMC-ABC
 #-------------------------------------------------------------------------------
   
-ncl<-50 #detectCores() #number of cores used for parallel computation
+ncl<-detectCores()-1 #number of cores used for parallel computation
 N<-4 #number of populations
 M<-500 #number of kept samples per iteration
   
@@ -140,7 +141,7 @@ registerDoSNOW(cl)
 #--------------------------------------------
   
 n_pilot<-10^4
-merge_d<-foreach(i=1:n_pilot,.combine='rbind',.packages = c('SplittingJRNMM','IRISSeismic','mvnfast')) %dopar% {
+merge_d<-foreach(i=1:n_pilot,.combine='rbind',.packages = c('SplittingJRNMM','mvnfast')) %dopar% {
   ABC_pilot(N,T,h,grid,startv,Theta,Rho,K,dm_sim,meanVec,cm_sim,summaries,summaries_parameters,summaries_weights,Pr_cont)
 }
   
@@ -156,7 +157,7 @@ start_time<-Sys.time()
 r<-1
 
 #carry out for-loop in parallel  
-merge_d<-foreach(i=1:M,.combine='rbind',.packages = c('SplittingJRNMM','IRISSeismic','mvnfast')) %dopar% {
+merge_d<-foreach(i=1:M,.combine='rbind',.packages = c('SplittingJRNMM','mvnfast')) %dopar% {
   ABC_SMC_r1(N,T,h,grid,startv,Theta,Rho,K,dm_sim,meanVec,cm_sim,summaries,summaries_parameters,summaries_weights,Pr_cont,delta_1)
 }
   
@@ -222,7 +223,7 @@ while(ar>0.001){ #repeat until stopping criterion reached
   }
   
   #carry out for-loop in parallel
-  merge_d<-foreach(i=1:M,.combine='rbind',.packages = c('SplittingJRNMM','IRISSeismic','mvnfast')) %dopar% {
+  merge_d<-foreach(i=1:M,.combine='rbind',.packages = c('SplittingJRNMM','mvnfast')) %dopar% {
     ABC_SMC(N,T,h,grid,startv,Theta,Rho,K,dm_sim,meanVec,cm_sim,summaries,summaries_parameters,summaries_weights,Amat,Lvec,cvec,norm_weights_c,sigma_kernel,hat_p_vec,stay_prob,Pr_cont,delta_r)
   }
     
