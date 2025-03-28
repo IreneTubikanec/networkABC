@@ -1,9 +1,9 @@
 
 #-----------------------------------------------------------------------------------
 # Author: Irene Tubikanec
-# Date:  2023-05-23
+# Date:  2025-03-28
 #-----------------------------------------------------------------------------------
-# Required packages for SMC-ABC inference in the JRNMM
+# Required packages for nSMC-ABC inference in the JRNMM
 #-----------------------------------------------------------------------------------
 
 #Rcpp
@@ -22,6 +22,5 @@ library(SplittingJRNMM)
 
 #Further packages
 library(rexpokit) #matrix exponentiation
-library(IRISSeismic) #(cross)-spectral density computation
 library(mvnfast) #multivariate normal distribution
 
